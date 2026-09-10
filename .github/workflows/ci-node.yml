@@ -32,9 +32,10 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v7
 
-      - name: Install pnpm + Node.js via devEngines.runtime
+      - name: Install pnpm + Node.js
         uses: pnpm/setup@v2
         with:
+          version: 12
           cache: true
 
       - name: Setup Google Services Files (if present)
