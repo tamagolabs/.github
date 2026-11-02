@@ -17,12 +17,12 @@ on:
         description: "Versão do pnpm (quando package-manager for 'pnpm')"
         required: false
         type: string
-        default: "9"
+        default: "latest"
       node-version:
         description: "Versão do Node.js (necessário para pnpm)"
         required: false
         type: string
-        default: "20"
+        default: "latest"
       test-command:
         description: "Comando completo para executar os testes. Se vazio, a etapa é ignorada."
         required: false
@@ -50,7 +50,7 @@ jobs:
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # --- Setup Bun ---
       - name: Setup Bun
@@ -62,17 +62,12 @@ jobs:
       # --- Setup pnpm + Node.js ---
       - name: Setup pnpm
         if: ${{ inputs.package-manager == 'pnpm' }}
-        uses: pnpm/action-setup@v4
+        uses: pnpm/setup@v3
         with:
           version: ${{ inputs.pnpm-version }}
+          runtime: node@26
+          cache: true
           run_install: false
-
-      - name: Setup Node.js (for pnpm)
-        if: ${{ inputs.package-manager == 'pnpm' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ inputs.node-version }}
-          cache: "pnpm"
 
       # --- Install Dependencies ---
       - name: Install Dependencies (Bun)
