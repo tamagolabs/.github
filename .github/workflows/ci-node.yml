@@ -1,15 +1,35 @@
-name: Reusable TypeScript/Node CI
+name: Reusable TypeScript/Node & Bun CI
 
 on:
   workflow_call:
     inputs:
+      package-manager:
+        description: "Gerenciador de pacotes a ser utilizado ('pnpm' ou 'bun')"
+        required: false
+        type: string
+        default: "pnpm"
+      bun-version:
+        description: "Versão do Bun (quando package-manager for 'bun')"
+        required: false
+        type: string
+        default: "latest"
+      pnpm-version:
+        description: "Versão do pnpm (quando package-manager for 'pnpm')"
+        required: false
+        type: string
+        default: "9"
+      node-version:
+        description: "Versão do Node.js (necessário para pnpm)"
+        required: false
+        type: string
+        default: "20"
       test-command:
-        description: "Comando completo para executar os testes (ex: 'pnpm vitest run'). Se vazio, a etapa é ignorada."
+        description: "Comando completo para executar os testes. Se vazio, a etapa é ignorada."
         required: false
         type: string
         default: ""
       build-command:
-        description: "Comando completo para executar o build (ex: 'pnpm build'). Se vazio, a etapa é ignorada."
+        description: "Comando completo para executar o build. Se vazio, a etapa é ignorada."
         required: false
         type: string
         default: ""
@@ -30,14 +50,40 @@ jobs:
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
-      - name: Install pnpm + Node.js
-        uses: pnpm/setup@v2
+      # --- Setup Bun ---
+      - name: Setup Bun
+        if: ${{ inputs.package-manager == 'bun' }}
+        uses: oven-sh/setup-bun@v2
         with:
-          version: 12
-          cache: true
+          bun-version: ${{ inputs.bun-version }}
 
+      # --- Setup pnpm + Node.js ---
+      - name: Setup pnpm
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+          run_install: false
+
+      - name: Setup Node.js (for pnpm)
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "pnpm"
+
+      # --- Install Dependencies ---
+      - name: Install Dependencies (Bun)
+        if: ${{ inputs.package-manager == 'bun' }}
+        run: bun install --frozen-lockfile
+
+      - name: Install Dependencies (pnpm)
+        if: ${{ inputs.package-manager == 'pnpm' }}
+        run: pnpm install --frozen-lockfile
+
+      # --- Setup Google Services ---
       - name: Setup Google Services Files (if present)
         env:
           IOS_SECRET: ${{ secrets.GOOGLE_SERVICES_IOS_BASE64 }}
@@ -50,11 +96,12 @@ jobs:
             echo "$ANDROID_SECRET" | base64 --decode > google-services.json
           fi
 
+      # --- Verification Steps ---
       - name: Run Biome Check (Lint & Format)
-        run: pnpm biome check --error-on-warnings .
+        run: ${{ inputs.package-manager == 'bun' && 'bunx' || 'pnpm' }} biome check --error-on-warnings .
 
       - name: Typecheck (tsc)
-        run: pnpm tsc --noEmit
+        run: ${{ inputs.package-manager == 'bun' && 'bunx' || 'pnpm' }} tsc --noEmit
 
       - name: Run Tests
         if: ${{ inputs.test-command != '' }}
